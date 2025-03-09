@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>火箭分离动画演示</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: 宋体;
+            background: #f5f5f5;
+        }
+        canvas {
+            border: 2px solid #333;
+            width: 80%;
+            height: 300px;
+            background: #f0f0f0;
+            margin: 20px 0;
+        }
+        .control-panel {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        input[type="number"] {
+            width: 180px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 25px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.reset {
+            background: #9E9E9E;
+        }
+        .speed-display {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .speed-item {
+            font-size: 18px;
+            margin: 8px 0;
+            padding: 8px 20px;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .physics-info {
+            max-width: 800px;
+            margin: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        code {
+            background: #f8f9fa;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+            color: #d63384;
+        }
+        #fuelSpeed { color: #2196F3; }
+        #instrumentSpeed { color: #4CAF50; }
+    </style>
+</head>
+<body>
+    <div class="control-panel">
+        <div class="input-group">
+            <input type="number" id="initialSpeed" placeholder="初始速度 (m/s)" value="2500">
+            <input type="number" id="relativeSpeed" placeholder="相对速度 (m/s)">
+        </div>
+        <div class="input-group">
+            <button onclick="startAnimation()">开始</button>
+            <button onclick="triggerSeparation()">分离</button>
+            <button class="reset" onclick="resetAnimation()">复位</button>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <div class="speed-display">
+        <div class="speed-item" id="fuelSpeed">燃料舱速度：2500.00 m/s</div>
+        <div class="speed-item" id="instrumentSpeed">仪器舱速度：2500.00 m/s</div>
+    </div>
+
+    <div class="physics-info">
+        <p>物理原理说明：</p>
+        <ul>
+            <li>在火箭分离前后，火箭系统在水平方向受到的合外力近似为零</li>
+            <li>火箭系统在水平方向上动量守恒，导致其分离的力为系统的内力</li>
+            <li>程序中动量守恒计算语句为：<code>v1 = ((m1 + m2)*v_initial - m2*v_relative)/(m1 + m2)</code></li>
+        </ul>
+    </div>
+
+    <script>
+        // 系统参数
+        let m1 = 200;
+        let m2 = 100;
+        let v_initial = 2500;
+        let v_relative = 0;
+        
+        // 动画状态
+        let animationStarted = false;
+        let separationTriggered = false;
+        let tStart = 0;
+        let tSepStart = 0;
+        let scale = 0.002;
+        let animationFrameId;
+
+        // DOM元素
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const fuelSpeedElement = document.getElementById('fuelSpeed');
+        const instrumentSpeedElement = document.getElementById('instrumentSpeed');
+
+        // 窗口大小调整
+        function resizeCanvas() {
+            canvas.width = window.innerWidth * 0.8;
+            canvas.height = 300;
+            scale = canvas.width / 15000;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // 启动动画
+        function startAnimation() {
+            if (!animationStarted) {
+                v_initial = parseFloat(document.getElementById('initialSpeed').value) || 2500;
+                v_relative = parseFloat(document.getElementById('relativeSpeed').value) || 0;
+                animationStarted = true;
+                separationTriggered = false;
+                tStart = Date.now();
+                animate();
+            }
+        }
+
+        // 触发分离
+        function triggerSeparation() {
+            if (animationStarted && !separationTriggered) {
+                v1 = ((m1 + m2)*v_initial - m2*v_relative)/(m1 + m2);
+                v2 = v1 + v_relative;
+                separationTriggered = true;
+                tSepStart = Date.now();
+                xSep = v_initial * ((tSepStart - tStart)/1000);
+            }
+        }
+
+        // 复位系统
+        function resetAnimation() {
+            animationStarted = false;
+            separationTriggered = false;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            fuelSpeedElement.textContent = '燃料舱速度：2500.00 m/s';
+            instrumentSpeedElement.textContent = '仪器舱速度：2500.00 m/s';
+            document.getElementById('initialSpeed').value = 2500;
+            document.getElementById('relativeSpeed').value = '';
+            cancelAnimationFrame(animationFrameId);
+        }
+
+        // 动画循环
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.font = 'bold 28px 宋体';
+
+            if (animationStarted) {
+                const currentTime = (Date.now() - tStart)/1000;
+                
+                // 更新速度显示
+                if (!separationTriggered) {
+                    fuelSpeedElement.textContent = `燃料舱速度：${v_initial.toFixed(2)} m/s`;
+                    instrumentSpeedElement.textContent = `仪器舱速度：${v_initial.toFixed(2)} m/s`;
+                } else {
+                    const tSepElapsed = (Date.now() - tSepStart)/1000;
+                    fuelSpeedElement.textContent = `燃料舱速度：${v1.toFixed(2)} m/s`;
+                    instrumentSpeedElement.textContent = `仪器舱速度：${v2.toFixed(2)} m/s`;
+                }
+
+                if (!separationTriggered) {
+                    const x = v_initial * currentTime;
+                    drawFuelTank(x);
+                    drawInstrumentModule(x);
+                } else {
+                    const tSepElapsed = (Date.now() - tSepStart)/1000;
+                    const x1 = xSep + v1 * tSepElapsed;
+                    const x2 = xSep + v2 * tSepElapsed;
+                    drawFuelTank(x1);
+                    drawInstrumentModule(x2);
+                }
+            }
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // 绘制垂直圆柱体
+        function drawFuelTank(xPos) {
+            const screenX = xPos * scale;
+            const centerY = canvas.height/2;
+            
+            // 垂直圆柱体
+            ctx.fillStyle = '#2196F3';
+            ctx.fillRect(screenX - 15, centerY - 50, 30, 100);
+            
+            // 圆形端盖
+            ctx.beginPath();
+            ctx.ellipse(screenX, centerY - 50, 15, 10, 0, 0, Math.PI * 2);
+            ctx.ellipse(screenX, centerY + 50, 15, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 标签
+            ctx.fillStyle = '#0D47A1';
+            ctx.fillText('燃料舱', screenX, centerY + 100);
+        }
+
+        // 绘制三角形仪器舱
+        function drawInstrumentModule(xPos) {
+            const screenX = xPos * scale;
+            const centerY = canvas.height/2;
+            
+            ctx.fillStyle = '#4CAF50';
+            ctx.beginPath();
+            ctx.moveTo(screenX + 30, centerY);
+            ctx.lineTo(screenX - 20, centerY - 25);
+            ctx.lineTo(screenX - 20, centerY + 25);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = '#2E7D32';
+            ctx.fillText('仪器舱', screenX, centerY + 100);
+        }
+    </script>
+</body>
+</html>
